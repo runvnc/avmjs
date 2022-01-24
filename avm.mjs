@@ -55,7 +55,7 @@ class ABICaller {
 
 	  const comp = new algosdk.AtomicTransactionComposer()
 	  const method_ = this.contract.methods.find( m => m.name == method )
-	  
+
 	  comp.addMethodCall({
 	      method: method_, methodArgs: args, ...commonParams
 	  })
@@ -75,6 +75,7 @@ class ABICaller {
   	  while (tries < 28 && !found) {
     	  try {
     	    tries += 1
+    	    process.stdout.write('.')
           block = await client.block(currRound).do()
           const decoder = new TextDecoder()
           found = false
@@ -86,6 +87,7 @@ class ABICaller {
             }
           }
           if (!found) break
+
         } catch (e) {
           await delay(200)       
         }
