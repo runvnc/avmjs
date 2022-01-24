@@ -3,6 +3,8 @@ import ora from 'ora'
 import repl from 'repl'
 import vm from 'vm'
 import { processTopLevelAwait } from 'node-repl-await'
+import terminal from 'terminal-kit'
+const term = terminal.terminal
 
 const algod_token = '8854a3be0df4c5495a9e8f62ff7b0b74dc3fe197351bff3d66c4996201a912d0'
 const algod_host = 'https://node.algonfts.art'
@@ -15,19 +17,19 @@ let service
 
 const input = async (str, args) => {
   console.log({str})
-  const spinner = ora('Executing ABI call..').start()
+  //const spinner = ora({text:'Executing ABI call..',discardStdin:false}).start()
+  const spinner = await term.spinner( 'unboxing-color' ) 
+  term( ' Executing ABI call...')
   try {
     let {logs, val} = await service.call(str, args) 
-    spinner.stopAndPersist()
+    spinner.destroy()
     for (let l of logs) console.log(l)    
     console.log(`[ ${val} ]`)
     
     return null
   } catch (e) {
-    spinner.stopAndPersist()    
     console.error(e)
   } finally {
-    spinner.stopAndPersist()    
   }    
 }
 

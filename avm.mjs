@@ -18,14 +18,6 @@ const getClient = () => {
   return client
 }
 
-const toUint8Array = (hexstr) => {
-  let b = Buffer.from(hexstr)
-  console.log({b})
-  //for (let c of hexstr) {
-  //  console.log(c)
-  //}  
-}
-
 class ABICaller {
 	constructor(mnemonic, contract) {
 	  this.acct = algosdk.mnemonicToSecretKey(mnemonic)
