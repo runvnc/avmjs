@@ -18,6 +18,14 @@ const getClient = () => {
   return client
 }
 
+const toUint8Array = (hexstr) => {
+  let b = Buffer.from(hexstr)
+  console.log({b})
+  //for (let c of hexstr) {
+  //  console.log(c)
+  //}  
+}
+
 class ABICaller {
 	constructor(mnemonic, contract) {
 	  this.acct = algosdk.mnemonicToSecretKey(mnemonic)
@@ -93,7 +101,12 @@ class ABICaller {
       currRound++
     }
     let elapsed = Date.now() - start
-	  return tx
+    let logs = tx.dt.lg
+    const text = new TextDecoder()
+    const lastLog = logs.splice(-1)[0]
+    let v = lastLog.slice(4)
+    let val = method_.returns.type.decode(Buffer.from(v))
+	  return {logs, val}
   }
 }
   

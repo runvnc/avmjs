@@ -24,12 +24,19 @@ const test = async () => {
   //console.log(service.acct.addr)
 
   const spinner = ora('Executing ABI call..').start()
-  let res = await service.call('setup',[])
-  spinner.stop()
-  console.log(JSON.stringify(res))
-  console.log('log',res.dt.lg)
-  delete res.dt['lg']
-  console.log('dt',res.dt)
+  try {
+    //let {logs, val} = await service.call('setup',[]) 
+    let {logs, val} = await service.call('look',[]) 
+    spinner.stop()
+    for (let l of logs) console.log(l)    
+    console.log(`[ ${val} ]`)
+
+  } catch (e) {
+    console.error(e)
+  } finally {
+    spinner.stop()    
+  }  
+  
 }
 
 test().catch(console.error)
