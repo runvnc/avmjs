@@ -3,8 +3,11 @@ import ora from 'ora'
 import repl from 'repl'
 import vm from 'vm'
 import { processTopLevelAwait } from 'node-repl-await'
+import colors from 'colors'
 //import terminal from 'terminal-kit'
 //const term = terminal.terminal
+
+import Table from 'cli-table3'
 
 const algod_token = '8854a3be0df4c5495a9e8f62ff7b0b74dc3fe197351bff3d66c4996201a912d0'
 const algod_host = 'https://node.algonfts.art'
@@ -17,6 +20,8 @@ let service
 
 function completer(line) {
   const completions = service.contract.methods.map(m => m.name)
+  completions.push('/menu')
+  completions.push('/debug')
   const hits = completions.filter((c) => c.startsWith(line));
   // Show all completions if none found
   return [hits.length ? hits : completions, line]
@@ -79,12 +84,16 @@ function isRecoverableError(error) {
 
 const menu = (c = null) => {  
   if (!c) c = service.contract
-  console.log(`= ${service.contract.name} =`)
+  let table1 = new Table({head:[`  == ${(service.contract.name)} ==  `.cyan]})
+  print(table1.toString())
+  //table.push([{colspan:3, content: service.contract.name}])
+  //console.log(`= ${service.contract.name} =`)
+  let table = new Table({head:['Method'.cyan, 'Arguments'.cyan, 'Return'.cyan]})
   for (let m of c.methods) {
     let argdesc = m.args.map(a => `<${a.name}: ${a.type.toString()}>`).join(' ')
-
-    console.log(m.name, argdesc, `-> ${m.returns.type.toString()}`)
+    table.push([m.name, argdesc, m.returns.type.toString()])
   }
+  print(table.toString())
 }
 
 const print = console.log
