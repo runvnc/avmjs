@@ -4,6 +4,8 @@ import repl from 'repl'
 import vm from 'vm'
 import { processTopLevelAwait } from 'node-repl-await'
 import colors from 'colors'
+import fg from 'fast-glob'
+
 //import terminal from 'terminal-kit'
 //const term = terminal.terminal
 
@@ -18,10 +20,22 @@ let r
 
 let service
 
+
 function completer(line) {
-  const completions = service.contract.methods.map(m => m.name)
-  completions.push('/menu')
-  completions.push('/debug')
+  let completions
+  
+  if (line.includes('/contract ')) {
+    let toks = line.split(' ')
+    let fname = toks.length>1? toks[1] : ''
+    let files = fg.sync(`${toks[1]}*.json`)
+    
+    completions = files.map( f => `/contract ${f}` )
+  } else {
+    completions = service.contract.methods.map(m => m.name)
+    completions.push('/menu')
+    completions.push('/debug')
+    completions.push('/contract')
+  }
   const hits = completions.filter((c) => c.startsWith(line));
   // Show all completions if none found
   return [hits.length ? hits : completions, line]
@@ -55,8 +69,10 @@ async function doEval(cmd, context, filename, callback) {
       if (cmd[0] == '/') {
         cmd = cmd.substr(1)
         let toks = cmd.split(' ')
+        toks = toks.map( t => t.replace("\n",'') )
         let fn = toks[0]
         let prms = toks.slice(1).join(',')
+        if (fn == 'contract') prms = `'${toks[1]}'`
         cmd = `${fn}(${prms})`
       }
       cmd = processTopLevelAwait(cmd) || cmd
@@ -115,12 +131,18 @@ const debug = async () => {
   }  
 }
 
+const contract = async (fname) => {
+  service = makeCaller(mnemonic, fname)
+  menu()  
+}
+
 const setup = async () => {
   abiConfig({algod_token, algod_host, algod_port})
   
   service = makeCaller(mnemonic, 'contract.json')
   global.menu = menu
   global.debug = debug
+  global.contract = contract
   menu()
   console.log(service.acct.addr)
   r = repl.start({ prompt: '> ', eval: doEval, completer })
