@@ -107,7 +107,6 @@ methodResult.rawReturnValue = new Uint8Array(lastLog.slice(4));
           ); */
     
     let v = lastLog.slice(4)
-    console.log(method_.returns.type)
     let val = method_.returns.type.decode(Buffer.from(v))
     let val2 = []
     let childType = method_.returns.type?.childType

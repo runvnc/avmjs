@@ -15,6 +15,13 @@ let r
 
 let service
 
+function completer(line) {
+  const completions = service.contract.methods.map(m => m.name)
+  const hits = completions.filter((c) => c.startsWith(line));
+  // Show all completions if none found
+  return [hits.length ? hits : completions, line]
+}
+
 const input = async (str, args) => {
   process.stdout.write('Executing ABI call...')
   try {
@@ -90,7 +97,9 @@ const debug = async () => {
   }
   console.log({dbg})
   for (let tx of dbg.txns) {
-    console.log({tx}, tx['app-call-message'])
+    console.log(tx['app-call-message'])
+    for (let t of tx['app-call-trace'])
+      print(t)
     //for (let m of tx['app-call-message']) {
     //  print(m)
    // }
@@ -105,7 +114,7 @@ const setup = async () => {
   global.debug = debug
   menu()
   console.log(service.acct.addr)
-  r = repl.start({ prompt: '> ', eval: doEval })
+  r = repl.start({ prompt: '> ', eval: doEval, completer })
   
 }
 
