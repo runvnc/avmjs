@@ -10,6 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "algosdk": "^1.13.0",
+    "better-sqlite3": "^7.5.0",
     "delay": "^5.0.0",
     "md5": "^2.3.0",
     "node-repl-await": "^0.1.2",

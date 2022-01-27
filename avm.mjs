@@ -53,16 +53,17 @@ class ABICaller {
 	        signer: algosdk.makeBasicAccountTransactionSigner(this.acct)
 	  }
 
-	  const comp = new algosdk.AtomicTransactionComposer()
+	  this.comp = new algosdk.AtomicTransactionComposer()
 	  const method_ = this.contract.methods.find( m => m.name == method )
-
-	  comp.addMethodCall({
-	      method: method_, methodArgs: args, ...commonParams
-	  })
+    this.lastData = {
+    	   method: method_, methodArgs: args, ...commonParams
+    }
+	  this.comp.addMethodCall(this.lastData)
     const status = await client.status().do()
     const lastRound = status['last-round']
     let currRound = lastRound+1
-	  const txIDs = await comp.submit(client)
+    
+	  const txIDs = await this.comp.submit(client)
 	  const txId = txIDs[0]
 	  let start = Date.now()
 	  let tries = 0
@@ -98,10 +99,42 @@ class ABICaller {
     let logs = tx.dt.lg
     const text = new TextDecoder()
     const lastLog = logs.splice(-1)[0]
+
+/*
+methodResult.rawReturnValue = new Uint8Array(lastLog.slice(4));
+          methodResult.returnValue = method.returns.type.decode(
+            methodResult.rawReturnValue
+          ); */
+    
     let v = lastLog.slice(4)
+    console.log(method_.returns.type)
     let val = method_.returns.type.decode(Buffer.from(v))
-	  return {logs, val}
+    let val2 = []
+    let childType = method_.returns.type?.childType
+    if (childType) {
+      for (let v2 of val)
+        val2.push(childType.decode(Buffer.from(v2)))
+      return {logs, val: val2}
+    } else {
+	    return {logs, val}
+	  }
   }
+
+  async debugLast() {
+	  this.comp = new algosdk.AtomicTransactionComposer()
+    
+	  this.comp.addMethodCall(this.lastData)
+    let sigs = await this.comp.gatherSignatures()
+    console.log({sigs})
+    let sigs2 = sigs.map( s => algosdk.decodeSignedTransaction(s) )
+    console.log({sigs2})
+    const req = await algosdk.createDryrun({client: this.client, txns: sigs2})
+    let ret = await this.client.dryrun(req).do()
+    //console.log(ret)
+
+    return ret
+  }
+  
 }
   
 export const makeCaller = (addr, contractJson) => {

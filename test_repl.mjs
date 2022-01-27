@@ -20,13 +20,11 @@ const input = async (str, args) => {
   try {
     let {logs, val} = await service.call(str, args) 
     console.log()
-    //spinner.destroy()
     for (let l of logs) console.log(l)    
-    //console.log(`[ ${val} ]`)
     
-    return null
+    return val
   } catch (e) {
-    console.error(e)
+    console.error(e.message)
   } finally {
   }    
 }
@@ -39,13 +37,8 @@ async function doEval(cmd, context, filename, callback) {
     let args = tokens.slice(1).map(s => s.trim())
     args = args.filter(a => a != undefined && a.length > 0)
     if (funcnames.includes(tokens[0])) {
-      await input(tokens[0], tokens.slice(1))
-      /*
-      global.input = input    
-      let cmd_ = `await input('${tokens[0]}', ${JSON.stringify(tokens.slice(1))})`
-      cmd_ = processTopLevelAwait(cmd_) || cmd_
-      result = await vm.runInThisContext(cmd_, context) */
-      callback(null, 1)
+      let rr = await input(tokens[0], tokens.slice(1))
+      callback(null, rr)
     } else {
       if (cmd[0] == '/') {
         cmd = cmd.substr(1)
@@ -87,11 +80,29 @@ const menu = (c = null) => {
   }
 }
 
+const print = console.log
+const printerr = console.error
+
+const debug = async () => {
+  let dbg = await service.debugLast()
+  if (dbg.error) { 
+    printerr(dbg.error)
+  }
+  console.log({dbg})
+  for (let tx of dbg.txns) {
+    console.log({tx}, tx['app-call-message'])
+    //for (let m of tx['app-call-message']) {
+    //  print(m)
+   // }
+  }  
+}
+
 const setup = async () => {
   abiConfig({algod_token, algod_host, algod_port})
   
   service = makeCaller(mnemonic, 'contract.json')
   global.menu = menu
+  global.debug = debug
   menu()
   console.log(service.acct.addr)
   r = repl.start({ prompt: '> ', eval: doEval })
