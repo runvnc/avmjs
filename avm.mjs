@@ -3,6 +3,8 @@ import delay from 'delay'
 import md5 from 'md5'
 import {exec} from 'child_process'
 
+const print = console.log
+
 let client
 let algodtoken, algodhost, algodport, dry_run
 import fs from 'fs'
@@ -23,6 +25,7 @@ const getClient = () => {
 class ABICaller {
 	constructor(mnemonic, contract) {
 	  this.acct = algosdk.mnemonicToSecretKey(mnemonic)
+	  this.acctlocals = {}
     try {
       JSON.parse(contract)
       this.contractData = contract
@@ -67,7 +70,7 @@ class ABICaller {
     sinceLast = Math.round(sinceLast/1000000)
     let currRound = lastRound+2
     let timeLeftInRound = 4400 - sinceLast
-
+    this.method_ = method_
     if (dry_run) return await this.doDryRun()
     
 	  const txIDs = await this.comp.submit(client)
@@ -78,6 +81,7 @@ class ABICaller {
 	  let tx
 	  let start = Date.now()
 	  await delay(sinceLast)
+
     
 	  while (!found && currRound <= lastRound + 4) {
 	    tries = 0
@@ -140,21 +144,27 @@ class ABICaller {
   }
   
   async doDryRun() {
+    const method_ = this.method_
     let sigs = await this.comp.gatherSignatures()
     let sigs2 = sigs.map( s => algosdk.decodeSignedTransaction(s) )
     const req = await algosdk.createDryrun({client: this.client, txns: sigs2})
     
     let ret = await this.client.dryrun(req).do()
     
-    let logs_ = []
+    let logs_ = [], val2
+    console.log(this.acct)
     for (let tx of ret.txns) {
+
       if (!tx.logs) continue
-      let logs = tx.dt.lg
+      let logs = tx.logs
+      logs = logs.map(l => Buffer.from(l, 'base64').toString('utf8'))
+      logs_ = logs
+      
       const text = new TextDecoder()
       const lastLog = logs.splice(-1)[0]
       let v = lastLog.slice(4)
       let val = method_.returns.type.decode(Buffer.from(v))
-      let val2 = []
+      val2 = []
       let childType = method_.returns.type?.childType
       if (childType) {
         for (let v2 of val)

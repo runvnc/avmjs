@@ -116,7 +116,8 @@ const menu = (c = null) => {
   tbl2.push(['/contract <fname.json>', 'Load Algorand ABI contract from interface JSON file.'])
   tbl2.push(['/menu', 'Show methods available in this contract'])
   tbl2.push(['/debug', 'View interactive trace log from last method call.'])
-  tbl2.push(['/dryrun', 'Start using dryrun instead of real transactions (faster).'])
+  tbl2.push(['/dryrun', 'Start using dryrun instead of real transactions (faster, does not retain state).'])
+  tbl2.push(['/live', 'Switch to live transactions.'])
   tbl2.push(['.exit', 'Exit program'])
   print(tbl2.toString())
   if (c || service) {
@@ -229,7 +230,7 @@ const debug = async () => {
 }
 
 const dryrun = () => {
-  service.abiConfig({dryrun: true})  
+  abiConfig({dryrun: true})  
 }
 
 const contract = async (fname) => {
@@ -245,6 +246,7 @@ const setup = async () => {
   global.menu = menu
   global.debug = debug
   global.contract = contract
+  global.dryrun = dryrun
   menu()
   //console.log(service.acct.addr)
   r = repl.start({ prompt: '> ', eval: doEval, completer })  
