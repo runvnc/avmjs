@@ -51,7 +51,8 @@ const input = async (str, args) => {
     
     return val
   } catch (e) {
-    if (e.message.includes('logic eval error')) {
+  
+    if (false && e.message.includes('logic eval error')) {
     
       debug().catch(console.error)
      
