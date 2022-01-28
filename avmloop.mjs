@@ -142,16 +142,16 @@ const prslot = (isStack, n, typ, byts, uint, outp) => {
 const showFrame = (t, asm) => {
   let outp = ''
   let table = new Table({style:{head:[],border:[]}});
-  let h = ''
+  let h = '    '
   if (t.error) h = t.error.red
-  let stline = Math.max(0, t.line - 8)
-  let enline = Math.min(t.line + 8, asm.length-1)
+  let stline = Math.max(0, t.line - 11)
+  let enline = Math.min(t.line + 11, asm.length-1)
   let code = ''
   let ll = 0
   let sl = asm.slice(stline, enline+1)
   for (let l of sl) {
     let front = '    '
-    if (ll == t.line) front = ' => '
+    if (ll+stline == t.line) front = ' => '
     code += front + sl[ll].substr(0,35) + '\n'
     ll++
   }
@@ -175,8 +175,7 @@ const showFrame = (t, asm) => {
     [scratch]
   )
 
-  print(table.toString())
-  
+  return table.toString()  
 }
 
 const debug = async () => {
@@ -184,7 +183,6 @@ const debug = async () => {
   if (dbg.error) { 
     printerr(dbg.error)
   }
-  console.log({dbg})
   let appcall
   for (let tx of dbg.txns) {
     if (tx['app-call-trace']) appcall = tx
@@ -194,12 +192,12 @@ const debug = async () => {
       let f = trace.length-1
       
       let cont = true
+      console.clear()
       while (cont) {
         let t = trace[f]
-        
-        console.clear()        
-        print(f) 
-        showFrame(t, tx.disassembly)      
+        let outp = showFrame(t, tx.disassembly)
+        print("\x1B[1;1H")
+        print(outp)
         let [ch, keycd] = await waitkey()
         let keyname = keycd.name
         if (keyname == 'left' && f > 0) f--
