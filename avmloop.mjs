@@ -141,7 +141,7 @@ const prslot = (isStack, n, typ, byts, uint, outp) => {
 
 const showFrame = (t, asm) => {
   let outp = ''
-  let table = new Table({style:{head:[],border:[]}});
+  let table = new Table({style:{head:[],border:[]}, colWidths: [60, 42]});
   let h = '    '
   if (t.error) h = t.error.red
   let stline = Math.max(0, t.line - 11)
@@ -152,7 +152,7 @@ const showFrame = (t, asm) => {
   for (let l of sl) {
     let front = '    '
     if (ll+stline == t.line) front = ' => '
-    code += front + sl[ll].substr(0,35) + '\n'
+    code += front + sl[ll].substr(0,37) + '\n'
     ll++
   }
 
