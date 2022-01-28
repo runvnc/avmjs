@@ -5,6 +5,7 @@ import vm from 'vm'
 import { processTopLevelAwait } from 'node-repl-await'
 import colors from 'colors'
 import fg from 'fast-glob'
+import waitkey from './waitkey.mjs'
 
 //import terminal from 'terminal-kit'
 //const term = terminal.terminal
@@ -115,20 +116,82 @@ const menu = (c = null) => {
 const print = console.log
 const printerr = console.error
 
+const prslot = (isStack, n, typ, byts, uint, outp) => {
+  let hasBytes = byts && byts.length > 0
+  let show = isStack || hasBytes || uint > 0
+  if (!show) return
+  outp += (n+'').brightWhite + '  '
+  if (hasBytes) {
+    if (byts && byts.length > 0) {
+      outp +=  Buffer.from(byts, 'base64').toString('utf8').green
+    }
+  } else {
+    if (!isStack && uint == 0) return  
+    outp += uint.toFixed(0).yellow
+  }
+}
+
+const showFrame = (t, asm) => {
+  let outp = ''
+  //print((t.line.toFixed(0) + '  ').bgGrey.fgWhite + '  ')
+  let table = new Table({style:{head:[],border:[]}});
+  let h = ''
+  if (t.error) h = t.error.red)
+  let stline = Math.min(0, t.line - 8)
+  let enline = Math.max(t.line + 8, asm.length-1)
+  let code = asm.slice(stline, enline+1).join('\n')
+  let stack = 'STACK'.brightMagenta
+  for (let st of t.stack) {
+    prslot(true,ii++,st.type, st.bytes, st.uint, stack)        
+  }
+  let scratch = 'SCRATCH'.brightRed
+  let ii = 0
+
+  if (t.scratch) {
+      for (let sc of t.scratch) {
+        prslot(false, ii++, sc.type, sc.bytes, sc.uint, scratch)  
+      }
+    }
+  table.push(
+    [{colSpan:2,content:h}],
+    [stack, {rowspan: 2, content: code}],
+    [scratch]
+  )
+
+  print(table.toString())
+  
+}
+
 const debug = async () => {
   let dbg = await service.debugLast()
   if (dbg.error) { 
     printerr(dbg.error)
   }
   console.log({dbg})
+  let appcall
   for (let tx of dbg.txns) {
-    console.log(tx['app-call-message'])
-    for (let t of tx['app-call-trace'])
-      print(t)
-    //for (let m of tx['app-call-message']) {
-    //  print(m)
-   // }
-  }  
+    if (tx['app-call-trace']) appcall = tx
+
+    if (appcall) {
+       let trace = tx['app-call-trace']
+      let f = trace.length-1
+      
+      let cont = true
+      while (cont) {
+        let t = trace[f]
+        
+        console.clear()        
+        print(f) 
+        showFrame(t, tx.disassembly)      
+        let [ch, keycd] = await waitkey()
+        let keyname = keycd.name
+        if (keyname == 'left' && f > 0) f--
+        else if (keyname == 'right' && f< trace.length-1) f++
+        else if (keyname == 'escape') cont = false
+        else print(keyname)
+      }
+    }  
+  }
 }
 
 const contract = async (fname) => {
@@ -145,8 +208,7 @@ const setup = async () => {
   global.contract = contract
   menu()
   console.log(service.acct.addr)
-  r = repl.start({ prompt: '> ', eval: doEval, completer })
-  
+  r = repl.start({ prompt: '> ', eval: doEval, completer })  
 }
 
 setup().catch(console.error)

@@ -1,6 +1,7 @@
 import algosdk from 'algosdk'
 import delay from 'delay'
 import md5 from 'md5'
+import {exec} from 'child_process'
 
 let client
 let algodtoken, algodhost, algodport
@@ -128,8 +129,13 @@ methodResult.rawReturnValue = new Uint8Array(lastLog.slice(4));
     let sigs2 = sigs.map( s => algosdk.decodeSignedTransaction(s) )
     console.log({sigs2})
     const req = await algosdk.createDryrun({client: this.client, txns: sigs2})
+    console.log({req})
+    
+    //const json = req._get_object_for_encoding()
+    //const str = JSON.stringify(json)
+    //let {stdout, stderr} = await exec(`goal clerk dryrun-remote -D '${str}'`)
+    //console.log(stdour)
     let ret = await this.client.dryrun(req).do()
-    //console.log(ret)
 
     return ret
   }
