@@ -62,16 +62,19 @@ class ABICaller {
 	  this.comp.addMethodCall(this.lastData)
     const status = await client.status().do()
     const lastRound = status['last-round']
-    let currRound = lastRound+1
-    
+    let sinceLast = status['time-since-last-round']
+    sinceLast = Math.round(sinceLast/1000000)
+    let currRound = lastRound+2
+    let timeLeftInRound = 4400 - sinceLast
 	  const txIDs = await this.comp.submit(client)
 	  const txId = txIDs[0]
-	  let start = Date.now()
 	  let tries = 0
 	  let found = false
 	  let block
 	  let tx
-	  await delay(1)
+	  let start = Date.now()
+	  await delay(sinceLast)
+    
 	  while (!found && currRound <= lastRound + 4) {
 	    tries = 0
   	  while (tries < 28 && !found) {
@@ -88,24 +91,21 @@ class ABICaller {
               tx = tx_
             }
           }
-          if (!found) break
-
+          if (!found) {
+            await delay(4400);
+            break
+          }
         } catch (e) {
-          await delay(200)       
+          await delay(300) 
         }
       }
       currRound++
     }
     let elapsed = Date.now() - start
+    process.stdout.write(` ${elapsed} ms.`)
     let logs = tx.dt.lg
     const text = new TextDecoder()
     const lastLog = logs.splice(-1)[0]
-
-/*
-methodResult.rawReturnValue = new Uint8Array(lastLog.slice(4));
-          methodResult.returnValue = method.returns.type.decode(
-            methodResult.rawReturnValue
-          ); */
     
     let v = lastLog.slice(4)
     let val = method_.returns.type.decode(Buffer.from(v))

@@ -1,3 +1,4 @@
+#!/bin/env node
 import {abiConfig, makeCaller} from './avm.mjs'
 import ora from 'ora'
 import repl from 'repl'
