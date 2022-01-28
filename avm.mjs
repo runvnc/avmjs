@@ -4,13 +4,14 @@ import md5 from 'md5'
 import {exec} from 'child_process'
 
 let client
-let algodtoken, algodhost, algodport
+let algodtoken, algodhost, algodport, dry_run
 import fs from 'fs'
 
-export const abiConfig = ({algod_token, algod_host, algod_port}) => {
-  algodtoken = algod_token
-  algodhost = algod_host
-  algodport = algod_port
+export const abiConfig = ({algod_token, algod_host, algod_port, dryrun}) => {
+  if (algod_token !== undefined) algodtoken = algod_token
+  if (algod_host !== undefined) algodhost = algod_host
+  if (algod_port !== undefined) algodport = algod_port
+  if (dryrun !== undefined) dry_run = dryrun 
 }
 
 const getClient = () => {
@@ -66,6 +67,9 @@ class ABICaller {
     sinceLast = Math.round(sinceLast/1000000)
     let currRound = lastRound+2
     let timeLeftInRound = 4400 - sinceLast
+
+    if (dry_run) return await this.doDryRun()
+    
 	  const txIDs = await this.comp.submit(client)
 	  const txId = txIDs[0]
 	  let tries = 0
@@ -127,23 +131,40 @@ class ABICaller {
     
 	  this.comp.addMethodCall(this.lastData)
     let sigs = await this.comp.gatherSignatures()
-    console.log({sigs})
     let sigs2 = sigs.map( s => algosdk.decodeSignedTransaction(s) )
-    console.log({sigs2})
     const req = await algosdk.createDryrun({client: this.client, txns: sigs2})
-    console.log({req})
     
-    //const json = req._get_object_for_encoding()
-    //const str = JSON.stringify(json)
-    //let {stdout, stderr} = await exec(`goal clerk dryrun-remote -D '${str}'`)
-    //console.log(stdour)
     let ret = await this.client.dryrun(req).do()
 
     return ret
   }
   
+  async doDryRun() {
+    let sigs = await this.comp.gatherSignatures()
+    let sigs2 = sigs.map( s => algosdk.decodeSignedTransaction(s) )
+    const req = await algosdk.createDryrun({client: this.client, txns: sigs2})
+    
+    let ret = await this.client.dryrun(req).do()
+    
+    let logs_ = []
+    for (let tx of ret.txns) {
+      if (!tx.logs) continue
+      let logs = tx.dt.lg
+      const text = new TextDecoder()
+      const lastLog = logs.splice(-1)[0]
+      let v = lastLog.slice(4)
+      let val = method_.returns.type.decode(Buffer.from(v))
+      let val2 = []
+      let childType = method_.returns.type?.childType
+      if (childType) {
+        for (let v2 of val)
+          val2.push(childType.decode(Buffer.from(v2)))    
+      }
+    }
+    return {logs:logs_, val:val2}  
+  }
 }
-  
+
 export const makeCaller = (addr, contractJson) => {
   return new ABICaller(addr, contractJson)
 }

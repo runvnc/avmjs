@@ -22,9 +22,11 @@ let r
 
 let service
 
+let dryrun_ = false
+
 
 function completer(line) {
-  let completions
+  let completions = []
   
   if (line.includes('/contract ')) {
     let toks = line.split(' ')
@@ -32,10 +34,12 @@ function completer(line) {
     let files = fg.sync(`${toks[1]}*.json`)    
     completions = files.map( f => `/contract ${f}` )
   } else {
-    completions = service.contract.methods.map(m => m.name)
+    if (service)
+      completions = service.contract.methods.map(m => m.name)
     completions.push('/menu')
     completions.push('/debug')
     completions.push('/contract')
+    completions.push('/dryrun')
   }
   const hits = completions.filter((c) => c.startsWith(line));
   // Show all completions if none found
@@ -46,7 +50,7 @@ const input = async (str, args) => {
   process.stdout.write('Executing ABI call...')
   try {
     let {logs, val} = await service.call(str, args) 
-    console.log()
+    
     for (let l of logs) console.log(l)    
     
     return val
@@ -66,11 +70,11 @@ const input = async (str, args) => {
 async function doEval(cmd, context, filename, callback) {
   let result
   try {
-    const funcnames = service.contract.methods.map( m => m.name )    
+    const funcnames = service?.contract.methods.map( m => m.name )    
     const tokens = cmd.split(' ').map(s => s.trim())
     let args = tokens.slice(1).map(s => s.trim())
     args = args.filter(a => a != undefined && a.length > 0)
-    if (funcnames.includes(tokens[0])) {
+    if (funcnames?.includes(tokens[0])) {
       let rr = await input(tokens[0], tokens.slice(1))
       callback(null, rr)
     } else {
@@ -106,17 +110,27 @@ function isRecoverableError(error) {
 }
 
 const menu = (c = null) => {  
-  if (!c) c = service.contract
-  let table1 = new Table({head:[`  == ${(service.contract.name)} ==  `.cyan]})
-  print(table1.toString())
-  //table.push([{colspan:3, content: service.contract.name}])
-  //console.log(`= ${service.contract.name} =`)
-  let table = new Table({head:['Method'.cyan, 'Arguments'.cyan, 'Return'.cyan]})
-  for (let m of c.methods) {
-    let argdesc = m.args.map(a => `<${a.name}: ${a.type.toString()}>`).join(' ')
-    table.push([m.name, argdesc, m.returns.type.toString()])
+  let tbl = new Table({head:[' - Built-in Commands - '.yellow]})
+  print(tbl.toString())
+  let tbl2 = new Table({head:['Command'.yellow, 'Description'.yellow]})
+  tbl2.push(['/contract <fname.json>', 'Load Algorand ABI contract from interface JSON file.'])
+  tbl2.push(['/menu', 'Show methods available in this contract'])
+  tbl2.push(['/debug', 'View interactive trace log from last method call.'])
+  tbl2.push(['/dryrun', 'Start using dryrun instead of real transactions (faster).'])
+  tbl2.push(['.exit', 'Exit program'])
+  print(tbl2.toString())
+  if (c || service) {
+    print()
+    if (!c) c = service.contract
+    let table1 = new Table({head:[`  == ${(service.contract.name)} ==  `.cyan]})
+    print(table1.toString())
+    let table = new Table({head:['Method'.cyan, 'Arguments'.cyan, 'Return'.cyan]})
+    for (let m of c.methods) {
+      let argdesc = m.args.map(a => `<${a.name}: ${a.type.toString()}>`).join(' ')
+      table.push([m.name, argdesc, m.returns.type.toString()])
+    }
+    print(table.toString())
   }
-  print(table.toString())
 }
 
 const print = console.log
@@ -182,6 +196,9 @@ const showFrame = (t, asm) => {
 
 const debug = async () => {
   let dbg = await service.debugLast()
+  console.log(dbg)
+  //console.log(JSON.stringify(dbg,null,4))
+  process.exit(0)
   if (dbg.error) { 
     printerr(dbg.error)
   }
@@ -211,20 +228,25 @@ const debug = async () => {
   }
 }
 
+const dryrun = () => {
+  service.abiConfig({dryrun: true})  
+}
+
 const contract = async (fname) => {
   service = makeCaller(mnemonic, fname)
+  console.log(service)
   menu()  
 }
 
 const setup = async () => {
   abiConfig({algod_token, algod_host, algod_port})
   
-  service = makeCaller(mnemonic, 'contract.json')
+  //service = makeCaller(mnemonic, 'contract.json')
   global.menu = menu
   global.debug = debug
   global.contract = contract
   menu()
-  console.log(service.acct.addr)
+  //console.log(service.acct.addr)
   r = repl.start({ prompt: '> ', eval: doEval, completer })  
 }
 
