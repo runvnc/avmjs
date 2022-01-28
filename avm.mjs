@@ -115,8 +115,6 @@ class ABICaller {
     const text = new TextDecoder()
     const lastLog = logs.splice(-1)[0]
 
-    console.log("raw data is ", lastLog)
-    console.log("return type is ", method_.returns.type)    
     let v = lastLog.slice(4)
     let val = method_.returns.type.decode(Buffer.from(v))
     let val2 = []

@@ -235,7 +235,6 @@ const dryrun = () => {
 
 const contract = async (fname) => {
   service = makeCaller(mnemonic, fname)
-  console.log(service)
   menu()  
 }
 
