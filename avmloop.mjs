@@ -28,8 +28,7 @@ function completer(line) {
   if (line.includes('/contract ')) {
     let toks = line.split(' ')
     let fname = toks.length>1? toks[1] : ''
-    let files = fg.sync(`${toks[1]}*.json`)
-    
+    let files = fg.sync(`${toks[1]}*.json`)    
     completions = files.map( f => `/contract ${f}` )
   } else {
     completions = service.contract.methods.map(m => m.name)
@@ -51,6 +50,12 @@ const input = async (str, args) => {
     
     return val
   } catch (e) {
+    if (e.message.includes('logic eval error')) {
+    
+      debug().catch(console.error)
+     
+    }
+
     console.error(e.message)
   } finally {
   }    
@@ -82,8 +87,7 @@ async function doEval(cmd, context, filename, callback) {
     }
   } catch (e) {
     console.error(e)
-
-    return callback(null, 1)
+    return callback(null, e)
     //callback(null, 1)
     //if (isRecoverableError(e)) {
     //  return callback(new repl.Recoverable(e))
@@ -119,42 +123,55 @@ const printerr = console.error
 const prslot = (isStack, n, typ, byts, uint, outp) => {
   let hasBytes = byts && byts.length > 0
   let show = isStack || hasBytes || uint > 0
-  if (!show) return
+  if (!show) return outp
   outp += (n+'').brightWhite + '  '
   if (hasBytes) {
     if (byts && byts.length > 0) {
-      outp +=  Buffer.from(byts, 'base64').toString('utf8').green
+      let ss = Buffer.from(byts, 'base64').toString('ascii')      
+      ss = ss.replace(/./g, function(c){return c.charCodeAt(0)<128?c:"\\x"+c.charCodeAt(0).toString(16)})      
+      ss = JSON.stringify(ss)
+      outp += ss.substr(0, 50).green + '\n'
     }
   } else {
-    if (!isStack && uint == 0) return  
-    outp += uint.toFixed(0).yellow
+    if (!isStack && uint == 0) return outp
+    outp += uint.toFixed(0).yellow + '\n'
   }
+  return outp
 }
 
 const showFrame = (t, asm) => {
   let outp = ''
-  //print((t.line.toFixed(0) + '  ').bgGrey.fgWhite + '  ')
   let table = new Table({style:{head:[],border:[]}});
   let h = ''
-  if (t.error) h = t.error.red)
-  let stline = Math.min(0, t.line - 8)
-  let enline = Math.max(t.line + 8, asm.length-1)
-  let code = asm.slice(stline, enline+1).join('\n')
-  let stack = 'STACK'.brightMagenta
-  for (let st of t.stack) {
-    prslot(true,ii++,st.type, st.bytes, st.uint, stack)        
+  if (t.error) h = t.error.red
+  let stline = Math.max(0, t.line - 8)
+  let enline = Math.min(t.line + 8, asm.length-1)
+  let code = ''
+  let ll = 0
+  let sl = asm.slice(stline, enline+1)
+  for (let l of sl) {
+    let front = '    '
+    if (ll == t.line) front = ' => '
+    code += front + sl[ll].substr(0,35) + '\n'
+    ll++
   }
-  let scratch = 'SCRATCH'.brightRed
+
+  let stack = 'STACK\n'.brightMagenta
   let ii = 0
 
+  for (let st of t.stack) {
+    stack = prslot(true,ii++,st.type, st.bytes, st.uint, stack)        
+  }
+  let scratch = 'SCRATCH\n'.brightRed
+  ii = 0
   if (t.scratch) {
-      for (let sc of t.scratch) {
-        prslot(false, ii++, sc.type, sc.bytes, sc.uint, scratch)  
-      }
+    for (let sc of t.scratch) {
+      scratch = prslot(false, ii++, sc.type, sc.bytes, sc.uint, scratch)  
     }
+  }
   table.push(
     [{colSpan:2,content:h}],
-    [stack, {rowspan: 2, content: code}],
+    [stack, {rowSpan: 2, content: code}],
     [scratch]
   )
 
