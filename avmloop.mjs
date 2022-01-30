@@ -40,6 +40,8 @@ function completer(line) {
     completions.push('/debug')
     completions.push('/contract')
     completions.push('/dryrun')
+    completions.push('/live')
+    completions.push('/assets')
   }
   const hits = completions.filter((c) => c.startsWith(line));
   // Show all completions if none found
@@ -67,6 +69,8 @@ const input = async (str, args) => {
   }    
 }
 
+let assets_ = []
+
 function parseTxn(slashstr) {
   console.log('parsetxn')
   console.log({slashstr})
@@ -74,7 +78,7 @@ function parseTxn(slashstr) {
   let tks = s.split(' ')
   let typ = tks[0]
   let params = tks.slice(1)
-  console.log({params, s, tks, typ})
+  
   let txn = {
     type: typ
   }
@@ -125,6 +129,7 @@ async function doEval(cmd, context, filename, callback) {
         let fn = toks[0]
         let prms = toks.slice(1).join(',')
         if (fn == 'contract') prms = `'${toks[1]}'`
+        
         cmd = `${fn}(${prms})`
       }
       cmd = processTopLevelAwait(cmd) || cmd
@@ -158,6 +163,7 @@ const menu = (c = null) => {
   tbl2.push(['/debug', 'View interactive trace log from last method call.'])
   tbl2.push(['/dryrun', 'Start using dryrun instead of real transactions (faster, does not retain state).'])
   tbl2.push(['/live', 'Switch to live transactions.'])
+  tbl2.push(['/assets', 'Set appForeignAssets'])
   tbl2.push(['.exit', 'Exit program'])
   print(tbl2.toString())
   if (c || service) {
@@ -275,6 +281,12 @@ const contract = async (fname) => {
   menu()  
 }
 
+const assets = (...assts) => {
+  if (assts) assets_ = assts
+  else assets_ = []
+  service.setAssets(assets_)
+}
+
 const setup = async () => {
   abiConfig({algod_token, algod_host, algod_port})
   
@@ -283,6 +295,7 @@ const setup = async () => {
   global.debug = debug
   global.contract = contract
   global.dryrun = dryrun
+  global.assets = assets
   menu()
   //console.log(service.acct.addr)
   r = repl.start({ prompt: '> ', eval: doEval, completer })  

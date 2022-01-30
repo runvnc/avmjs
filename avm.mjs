@@ -28,6 +28,7 @@ class ABICaller {
 	constructor(mnemonic, contract) {
 	  this.acct = algosdk.mnemonicToSecretKey(mnemonic)
 	  this.acctlocals = {}
+	  this.assets = []
     try {
       JSON.parse(contract)
       this.contractData = contract
@@ -44,12 +45,14 @@ class ABICaller {
     this.client = getClient()
 	}
 
+  setAssets(assets) {
+    this.assets = assets
+  }
+
   dir() {
     return this.contract.methods.map(m => m.toJSON(m))
     
   }
-
-  
 
   async call(method, args) {
 	  const sp = await this.client.getTransactionParams().do()
@@ -61,7 +64,7 @@ class ABICaller {
        note: new Uint8Array(Buffer.from(myid)),
        signer: algosdk.makeBasicAccountTransactionSigner(this.acct)
 	  }
-
+    if (this.assets && this.assets.length>0) commonParams.suggestedParams.appForeignAssets = this.assets
 	  this.comp = new algosdk.AtomicTransactionComposer()
     let args_ = []
     let foundtxn = false
@@ -91,6 +94,7 @@ class ABICaller {
 	  const method_ = this.contract.methods.find( m => m.name == method )
 	  
     this.lastData = { method: method_, methodArgs: args, ...commonParams }
+    console.log(this.lastData)
 	  this.comp.addMethodCall(this.lastData)
 	  
     const status = await client.status().do()
