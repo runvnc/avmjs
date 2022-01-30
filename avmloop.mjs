@@ -50,7 +50,7 @@ const input = async (str, args) => {
   process.stdout.write('Executing ABI call...')
   try {
     let {logs, val} = await service.call(str, args) 
-    
+    print()    
     for (let l of logs) console.log(l)    
     
     return val
@@ -67,6 +67,28 @@ const input = async (str, args) => {
   }    
 }
 
+function parseTxn(slashstr) {
+  console.log('parsetxn')
+  console.log({slashstr})
+  let s = slashstr.slice(1)
+  let tks = s.split(' ')
+  let typ = tks[0]
+  let params = tks.slice(1)
+  console.log({params, s, tks, typ})
+  let txn = {
+    type: typ
+  }
+  if (typ == 'pay') {
+    txn.amount = params[0]*1
+  }
+  if (typ == 'optin') {
+    txn.amount = 0
+    txn.assetIndex = params[0]*1
+    txn.optIn = true
+  }
+  return {txn}
+}
+
 async function doEval(cmd, context, filename, callback) {
   let result
   try {
@@ -74,7 +96,25 @@ async function doEval(cmd, context, filename, callback) {
     const tokens = cmd.split(' ').map(s => s.trim())
     let args = tokens.slice(1).map(s => s.trim())
     args = args.filter(a => a != undefined && a.length > 0)
-    if (funcnames?.includes(tokens[0])) {
+    if (cmd.includes(',')) {
+      args = []
+      let fn, fnargs
+      let params = cmd.split(',')
+      for (let param of params) {
+        if (param[0] == '/') {
+          args.push(parseTxn(param))
+        } else {
+          let fnx = param.split(' ').map(s => s.trim())
+          fn = fnx[0]
+          fnargs = fnx.slice(1)
+        }
+      }
+      for (let aa of fnargs) args.push(aa)
+      
+      let rr = await input(fn, args)
+      callback(null, rr)
+    }
+    else if (funcnames?.includes(tokens[0])) {
       let rr = await input(tokens[0], tokens.slice(1))
       callback(null, rr)
     } else {
@@ -127,7 +167,7 @@ const menu = (c = null) => {
     print(table1.toString())
     let table = new Table({head:['Method'.cyan, 'Arguments'.cyan, 'Return'.cyan]})
     for (let m of c.methods) {
-      let argdesc = m.args.map(a => `<${a.name}: ${a.type.toString()}>`).join(' ')
+      let argdesc = m.args.map(a => `<${a.name?a.name+': ':''}${a.type.toString()}>`).join(' ')
       table.push([m.name, argdesc, m.returns.type.toString()])
     }
     print(table.toString())
@@ -197,9 +237,6 @@ const showFrame = (t, asm) => {
 
 const debug = async () => {
   let dbg = await service.debugLast()
-  console.log(dbg)
-  //console.log(JSON.stringify(dbg,null,4))
-  process.exit(0)
   if (dbg.error) { 
     printerr(dbg.error)
   }

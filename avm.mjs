@@ -5,6 +5,8 @@ import {exec} from 'child_process'
 
 const print = console.log
 
+const isInt = n => parseInt(n) === n
+
 let client
 let algodtoken, algodhost, algodport, dry_run
 import fs from 'fs'
@@ -47,23 +49,50 @@ class ABICaller {
     
   }
 
+  
+
   async call(method, args) {
 	  const sp = await this.client.getTransactionParams().do()
 	  const myid = md5(Date.now() + method + args?.join())
 	  const commonParams = {
-	        appID: this.contract.networks["default"].appID,
-	        sender: this.acct.addr,
-	        suggestedParams:sp,
-	        note: new Uint8Array(Buffer.from(myid)),
-	        signer: algosdk.makeBasicAccountTransactionSigner(this.acct)
+       appID: this.contract.networks["default"].appID,
+       sender: this.acct.addr,
+       suggestedParams:sp,
+       note: new Uint8Array(Buffer.from(myid)),
+       signer: algosdk.makeBasicAccountTransactionSigner(this.acct)
 	  }
 
 	  this.comp = new algosdk.AtomicTransactionComposer()
+    let args_ = []
+    let foundtxn = false
+	  for (let arg_ of args) {
+	    if (arg_.txn) {
+	      foundtxn = true
+	      let arg = arg_.txn
+	      Object.assign(arg, sp)
+	      arg.from = this.acct.addr
+	      if (arg.optIn) {
+	        arg.amount = 0
+	        arg.to = this.acct.addr
+	        arg.type = 'axfer'
+	        delete arg['optIn']
+	      }
+	      if (!isInt(arg.amount)) arg.amount *= 1000000
+	      
+	      if (!(arg.to)) arg.to = algosdk.getApplicationAddress(commonParams.appID)
+	      console.log('---------------------------\n',{arg})
+	      let tx = new algosdk.Transaction(arg)
+	      args_.push({txn: tx, signer: commonParams.signer})
+	    } else {
+	      args_.push(arg_)
+	    }
+	  }
+	  if (foundtxn) args = args_
 	  const method_ = this.contract.methods.find( m => m.name == method )
-    this.lastData = {
-    	   method: method_, methodArgs: args, ...commonParams
-    }
+	  
+    this.lastData = { method: method_, methodArgs: args, ...commonParams }
 	  this.comp.addMethodCall(this.lastData)
+	  
     const status = await client.status().do()
     const lastRound = status['last-round']
     let sinceLast = status['time-since-last-round']
@@ -88,7 +117,7 @@ class ABICaller {
   	  while (tries < 28 && !found) {
     	  try {
     	    tries += 1
-    	    process.stdout.write('.')
+    	    //process.stdout.write('.')
           block = await client.block(currRound).do()
           const decoder = new TextDecoder()
           found = false
@@ -110,7 +139,7 @@ class ABICaller {
       currRound++
     }
     let elapsed = Date.now() - start
-    process.stdout.write(` ${elapsed} ms.`)
+    //process.stdout.write(` ${elapsed} ms.`)
     let logs = tx.dt.lg
     const text = new TextDecoder()
     const lastLog = logs.splice(-1)[0]
@@ -118,13 +147,17 @@ class ABICaller {
     let v = lastLog.slice(4)
     let val = method_.returns.type.decode(Buffer.from(v))
     let val2 = []
+    logs = logs.map( (line) => {
+      if (line.endsWith("\n")) line = line.slice(0, -1)
+      return line
+    })
     let childType = method_.returns.type?.childType
     if (childType) {
       for (let v2 of val)
         val2.push(childType.decode(Buffer.from(v2)))
-      return {logs, val: val2}
+      return {logs, val: val2, elapsed}
     } else {
-	    return {logs, val}
+	    return {logs, val, elapsed}
 	  }
   }
 
