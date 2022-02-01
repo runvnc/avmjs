@@ -7,6 +7,7 @@ import { processTopLevelAwait } from 'node-repl-await'
 import colors from 'colors'
 import fg from 'fast-glob'
 import waitkey from './waitkey.mjs'
+import fs from 'fs/promises'
 
 //import terminal from 'terminal-kit'
 //const term = terminal.terminal
@@ -16,7 +17,8 @@ import Table from 'cli-table3'
 const algod_token = '8854a3be0df4c5495a9e8f62ff7b0b74dc3fe197351bff3d66c4996201a912d0'
 const algod_host = 'https://node.algonfts.art'
 const algod_port = ''
-const mnemonic = 'defy walk load seven paddle clap future normal stuff body glide year blouse south spray range man crawl concert wine comic shrimp boat ability stuff'
+
+let mnemonic, jsonfile
 
 let r
 
@@ -40,7 +42,8 @@ function completer(line) {
     completions.push('/debug')
     completions.push('/contract')
     completions.push('/dryrun')
-    completions.push('/live')
+    completions.push('/account')
+    //completions.push('/live')
     completions.push('/assets')
   }
   const hits = completions.filter((c) => c.startsWith(line));
@@ -129,7 +132,7 @@ async function doEval(cmd, context, filename, callback) {
         let fn = toks[0]
         let prms = toks.slice(1).join(',')
         if (fn == 'contract') prms = `'${toks[1]}'`
-        
+        if (fn == 'account') prms = `"${toks.slice(1).join(' ')}"`
         cmd = `${fn}(${prms})`
       }
       cmd = processTopLevelAwait(cmd) || cmd
@@ -158,12 +161,13 @@ const menu = (c = null) => {
   let tbl = new Table({head:[' - Built-in Commands - '.yellow]})
   print(tbl.toString())
   let tbl2 = new Table({head:['Command'.yellow, 'Description'.yellow]})
+  tbl2.push(['/account', 'Setup account (specify mnemonic phrase)'])
   tbl2.push(['/contract <fname.json>', 'Load Algorand ABI contract from interface JSON file.'])
   tbl2.push(['/menu', 'Show methods available in this contract'])
   tbl2.push(['/debug', 'View interactive trace log from last method call.'])
   tbl2.push(['/dryrun', 'Start using dryrun instead of real transactions (faster, does not retain state).'])
-  tbl2.push(['/live', 'Switch to live transactions.'])
-  tbl2.push(['/assets', 'Set appForeignAssets'])
+  //tbl2.push(['/live', 'Switch to live transactions.'])
+  //tbl2.push(['/assets', 'Set appForeignAssets'])
   tbl2.push(['.exit', 'Exit program'])
   print(tbl2.toString())
   if (c || service) {
@@ -277,23 +281,55 @@ const dryrun = () => {
 }
 
 const contract = async (fname) => {
+  if (!mnemonic) {
+    print("Please specify /account mnemonic first.")
+    return
+  }
   service = makeCaller(mnemonic, fname)
+  jsonfile = fname
+  await save()
   menu()  
 }
 
+const account = async (mnemonic_) => {
+  mnemonic = mnemonic_
+  await save()
+}
+ 
 const assets = (...assts) => {
   if (assts) assets_ = assts
   else assets_ = []
   service.setAssets(assets_)
 }
 
+const save = async () => {
+  let data = {mnemonic, jsonfile}
+  await fs.writeFile('notsecret.json', JSON.stringify(data))
+}
+
+const load = async () => {
+  try {
+    let dt = await fs.readFile('notsecret.json')
+    dt = JSON.parse(dt)
+    mnemonic = dt.mnemonic
+    jsonfile = dt.jsonfile
+  } catch (e) {
+    await fs.writeFile('notsecret.json', '{}')
+    return
+  }
+}
+
 const setup = async () => {
   abiConfig({algod_token, algod_host, algod_port})
   
-  //service = makeCaller(mnemonic, 'contract.json')
+  await load()
+  if (jsonfile) {
+    service = makeCaller(mnemonic, jsonfile)
+  }
   global.menu = menu
   global.debug = debug
   global.contract = contract
+  global.account = account
   global.dryrun = dryrun
   global.assets = assets
   menu()

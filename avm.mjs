@@ -7,6 +7,8 @@ const print = console.log
 
 const isInt = n => parseInt(n) === n
 
+const isIntStr = n => parseInt(n) == n
+
 let client
 let algodtoken, algodhost, algodport, dry_run
 import fs from 'fs'
@@ -64,12 +66,16 @@ class ABICaller {
        note: new Uint8Array(Buffer.from(myid)),
        signer: algosdk.makeBasicAccountTransactionSigner(this.acct)
 	  }
-    if (this.assets && this.assets.length>0) commonParams.suggestedParams.appForeignAssets = this.assets
 	  this.comp = new algosdk.AtomicTransactionComposer()
     let args_ = []
     let foundtxn = false
+    
 	  for (let arg_ of args) {
-	    if (arg_.txn) {
+	    if (isIntStr(arg_)) {
+	      arg_ *= 1
+	      args_.push(arg_)
+	      foundtxn = true
+	    } else if (arg_.txn) {
 	      foundtxn = true
 	      let arg = arg_.txn
 	      Object.assign(arg, sp)
@@ -83,7 +89,7 @@ class ABICaller {
 	      if (!isInt(arg.amount)) arg.amount *= 1000000
 	      
 	      if (!(arg.to)) arg.to = algosdk.getApplicationAddress(commonParams.appID)
-	      console.log('---------------------------\n',{arg})
+
 	      let tx = new algosdk.Transaction(arg)
 	      args_.push({txn: tx, signer: commonParams.signer})
 	    } else {
@@ -94,9 +100,8 @@ class ABICaller {
 	  const method_ = this.contract.methods.find( m => m.name == method )
 	  
     this.lastData = { method: method_, methodArgs: args, ...commonParams }
-    console.log(this.lastData)
+
 	  this.comp.addMethodCall(this.lastData)
-	  
     const status = await client.status().do()
     const lastRound = status['last-round']
     let sinceLast = status['time-since-last-round']
@@ -114,7 +119,6 @@ class ABICaller {
 	  let tx
 	  let start = Date.now()
 	  await delay(sinceLast)
-
     
 	  while (!found && currRound <= lastRound + 4) {
 	    tries = 0
@@ -171,6 +175,7 @@ class ABICaller {
 	  this.comp.addMethodCall(this.lastData)
     let sigs = await this.comp.gatherSignatures()
     let sigs2 = sigs.map( s => algosdk.decodeSignedTransaction(s) )
+    
     const req = await algosdk.createDryrun({client: this.client, txns: sigs2})
     
     let ret = await this.client.dryrun(req).do()
@@ -187,7 +192,7 @@ class ABICaller {
     let ret = await this.client.dryrun(req).do()
     
     let logs_ = [], val2
-    console.log(this.acct)
+    
     for (let tx of ret.txns) {
 
       if (!tx.logs) continue
