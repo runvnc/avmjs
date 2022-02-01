@@ -75,8 +75,6 @@ const input = async (str, args) => {
 let assets_ = []
 
 function parseTxn(slashstr) {
-  console.log('parsetxn')
-  console.log({slashstr})
   let s = slashstr.slice(1)
   let tks = s.split(' ')
   let typ = tks[0]
@@ -209,6 +207,7 @@ const prslot = (isStack, n, typ, byts, uint, outp) => {
 const showFrame = (t, asm) => {
   let outp = ''
   let table = new Table({style:{head:[],border:[]}, colWidths: [60, 42]});
+  
   let h = '    '
   if (t.error) h = t.error.red
   let stline = Math.max(0, t.line - 11)
@@ -255,7 +254,7 @@ const debug = async () => {
     if (tx['app-call-trace']) appcall = tx
 
     if (appcall) {
-       let trace = tx['app-call-trace']
+      let trace = tx['app-call-trace']
       let f = trace.length-1
       
       let cont = true
